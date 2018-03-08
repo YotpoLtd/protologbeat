@@ -236,6 +236,10 @@ func (ll *LogListener) processGelfMessage(msg *gelf.Message) {
 	event["short_message"] = msg.Short
 	event["full_message"] = msg.Full
 
+	for name,value := range msg.Extra {
+		event[name] = value
+	}
+
 	// 1 ms = 1000000 ns
 	if msg.TimeUnix == 0 {
 		event["@timestamp"] = common.Time(time.Now())
