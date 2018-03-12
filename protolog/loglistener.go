@@ -23,6 +23,17 @@ type LogListener struct {
 	logEntriesError    chan bool
 }
 
+var gelfLevels = map[int32]string{
+	0: "Emergency",
+	1: "Alert",
+	2: "Critical",
+	3: "Error",
+	4: "Warning",
+	5: "Notice",
+	6: "Informational",
+	7: "Debug",
+}
+
 func NewLogListener(cfg config.Config) *LogListener {
 	ll := &LogListener{
 		config: cfg,
@@ -235,7 +246,7 @@ func (ll *LogListener) processGelfMessage(msg *gelf.Message) {
 	event["short_message"] = msg.Short
 	event["full_message"] = msg.Full
 
-	for name,value := range msg.Extra {
+	for name, value := range msg.Extra {
 		event[name] = value
 	}
 
@@ -253,7 +264,9 @@ func (ll *LogListener) processGelfMessage(msg *gelf.Message) {
 		}
 	}
 
-	event["level"] = msg.Level
+	// Parse level to  be human readable
+
+	event["level"] = gelfLevels[msg.Level]
 	event["facility"] = msg.Facility
 	ll.logEntriesRecieved <- event
 
