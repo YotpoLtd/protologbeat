@@ -1,4 +1,4 @@
-ENV?=latest.yml
+ENV?=snapshot.yml
 BASE_COMMAND=docker-compose -f ${ENV} -f local.yml
 
 start:
@@ -7,8 +7,7 @@ start:
 	${BASE_COMMAND} run beat bash
 
 stop:
-	${BASE_COMMAND} stop
-	${BASE_COMMAND} rm
+	${BASE_COMMAND} down -v
 
 
 up:

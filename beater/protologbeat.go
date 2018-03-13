@@ -6,48 +6,56 @@ import (
 	"github.com/elastic/beats/libbeat/beat"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
-	"github.com/elastic/beats/libbeat/publisher"
 
 	"github.com/hartfordfive/protologbeat/config"
 	"github.com/hartfordfive/protologbeat/protolog"
 )
 
+var log *logp.Logger
+
+func init() {
+	log = logp.NewLogger("protologbeat")
+}
+
 type Protologbeat struct {
 	done        chan struct{}
 	config      config.Config
-	client      publisher.Client
+	client      beat.Client
 	logListener *protolog.LogListener
 }
 
 // Creates beater
 func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
-	config := config.DefaultConfig
-	if err := cfg.Unpack(&config); err != nil {
+	conf := config.DefaultConfig
+	if err := cfg.Unpack(conf); err != nil {
 		return nil, fmt.Errorf("Error reading config file: %v", err)
 	}
 
 	bt := &Protologbeat{
 		done:        make(chan struct{}),
-		config:      config,
-		logListener: protolog.NewLogListener(config),
+		config:      conf,
+		logListener: protolog.NewLogListener(conf),
 	}
 
 	return bt, nil
 }
 
 func (bt *Protologbeat) Run(b *beat.Beat) error {
-	logp.Info("protologbeat is running! Hit CTRL-C to stop it.")
+	var err error
+	bt.client, err = b.Publisher.Connect()
 
-	bt.client = b.Publisher.Connect()
-
-	logEntriesRecieved := make(chan common.MapStr, 100000)
+	if err != nil {
+		return err
+	}
+	log.Info("protologbeat is running! Hit CTRL-C to stop it.")
+	logEntriesRecieved := make(chan beat.Event, 100000)
 	logEntriesErrors := make(chan bool, 1)
 
-	go func(logs chan common.MapStr, errs chan bool) {
+	go func(logs chan beat.Event, errs chan bool) {
 		bt.logListener.Start(logs, errs)
 	}(logEntriesRecieved, logEntriesErrors)
 
-	var event common.MapStr
+	var event beat.Event
 
 	for {
 		select {
@@ -56,11 +64,11 @@ func (bt *Protologbeat) Run(b *beat.Beat) error {
 		case <-logEntriesErrors:
 			return nil
 		case event = <-logEntriesRecieved:
-			if event == nil {
+			if event.Fields == nil {
 				return nil
 			}
-			bt.client.PublishEvent(event)
-			logp.Info("Event sent")
+			bt.client.Publish(event)
+			log.Info("Event sent")
 		}
 	}
 

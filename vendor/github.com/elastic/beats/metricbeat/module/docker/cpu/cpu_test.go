@@ -4,13 +4,13 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/elastic/beats/libbeat/common"
+	"github.com/docker/docker/api/types"
 
-	dc "github.com/fsouza/go-dockerclient"
+	"github.com/elastic/beats/libbeat/common"
 )
 
 var cpuService CPUService
-var statsList = make([]dc.Stats, 3)
+var statsList = make([]types.StatsJSON, 3)
 
 func TestCPUService_PerCpuUsage(t *testing.T) {
 	oldPerCpuValuesTest := [][]uint64{{1, 9, 9, 5}, {1, 2, 3, 4}, {0, 0, 0, 0}}
@@ -20,7 +20,7 @@ func TestCPUService_PerCpuUsage(t *testing.T) {
 		statsList[index].CPUStats.CPUUsage.PercpuUsage = newPerCpuValuesTest[index]
 	}
 	testCase := []struct {
-		given    dc.Stats
+		given    types.StatsJSON
 		expected common.MapStr
 	}{
 		{statsList[0], common.MapStr{
@@ -55,70 +55,70 @@ func TestCPUService_PerCpuUsage(t *testing.T) {
 }
 
 func TestCPUService_TotalUsage(t *testing.T) {
-	oldTotalValuesTest := []uint64{0, 50, 10}
-	totalValuesTest := []uint64{0, 500000050, 10}
+	oldTotalValuesTest := []uint64{100, 50, 10}
+	totalValuesTest := []uint64{2, 500000050, 10}
 	for index := range statsList {
 		statsList[index].PreCPUStats.CPUUsage.TotalUsage = oldTotalValuesTest[index]
 		statsList[index].CPUStats.CPUUsage.TotalUsage = totalValuesTest[index]
 	}
 	testCase := []struct {
-		given    dc.Stats
+		given    types.StatsJSON
 		expected float64
 	}{
-		{statsList[0], 0},
+		{statsList[0], -1},
 		{statsList[1], 0.50},
 		{statsList[2], 0},
 	}
 	for _, tt := range testCase {
 		out := totalUsage(&tt.given)
 		if tt.expected != out {
-			t.Errorf("usageInKernelmode(%v) => %v, want %v", tt.given.CPUStats.CPUUsage.PercpuUsage, out, tt.expected)
+			t.Errorf("totalUsage(%v) => %v, want %v", tt.given.CPUStats.CPUUsage.TotalUsage, out, tt.expected)
 		}
 	}
 }
 
 func TestCPUService_UsageInKernelmode(t *testing.T) {
-	usageOldValuesTest := []uint64{0, 10, 500000050}
-	usageValuesTest := []uint64{500000000, 500000010, 500000050}
+	usageOldValuesTest := []uint64{100, 10, 500000050}
+	usageValuesTest := []uint64{3, 500000010, 500000050}
 	for index := range statsList {
 		statsList[index].PreCPUStats.CPUUsage.UsageInKernelmode = usageOldValuesTest[index]
 		statsList[index].CPUStats.CPUUsage.UsageInKernelmode = usageValuesTest[index]
 	}
 	testCase := []struct {
-		given    dc.Stats
+		given    types.StatsJSON
 		expected float64
 	}{
-		{statsList[0], 0.50},
+		{statsList[0], -1},
 		{statsList[1], 0.50},
 		{statsList[2], 0},
 	}
 	for _, tt := range testCase {
 		out := usageInKernelmode(&tt.given)
 		if out != tt.expected {
-			t.Errorf("usageInKernelmode(%v) => %v, want %v", tt.given, out, tt.expected)
+			t.Errorf("usageInKernelmode(%v) => %v, want %v", tt.given.CPUStats.CPUUsage.UsageInKernelmode, out, tt.expected)
 		}
 	}
 }
 
 func TestCPUService_UsageInUsermode(t *testing.T) {
-	usageOldValuesTest := []uint64{0, 1958965, 500}
-	usageValuesTest := []uint64{500000000, 1958965, 1000000500}
+	usageOldValuesTest := []uint64{0, 1965, 500}
+	usageValuesTest := []uint64{500000000, 325, 1000000500}
 	for index := range statsList {
 		statsList[index].PreCPUStats.CPUUsage.UsageInUsermode = usageOldValuesTest[index]
 		statsList[index].CPUStats.CPUUsage.UsageInUsermode = usageValuesTest[index]
 	}
 	testCase := []struct {
-		given    dc.Stats
+		given    types.StatsJSON
 		expected float64
 	}{
 		{statsList[0], 0.50},
-		{statsList[1], 0},
+		{statsList[1], -1},
 		{statsList[2], 1},
 	}
 	for _, tt := range testCase {
 		out := usageInUsermode(&tt.given)
 		if out != tt.expected {
-			t.Errorf("usageInKernelmode(%v) => %v, want %v", tt.given, out, tt.expected)
+			t.Errorf("usageInUsermode(%v) => %v, want %v", tt.given.CPUStats.CPUUsage.UsageInUsermode, out, tt.expected)
 		}
 	}
 }
